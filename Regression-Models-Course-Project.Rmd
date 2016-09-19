@@ -1,0 +1,94 @@
+---
+title: "Regression Models Course Project"
+author: "Andrew Clarkson"
+date: "September 18, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+## Executive Summary
+
+This analysis seeks to shed light on the question, "Is an automatic or manual transmission better for MPG". After careful exploration and modeling, the conclusion to be taken from this data set is that the type of transmission does not effect the MPG.
+
+## Effect of Transmission on MPG
+
+By creating a regression model we can see that transmission appears to have a very strong effect on MPG. These results can be interpreted as saying: "By switching from automatic to manual you should expect to gain 7.244939 MPG". In the summary we can glean, that am's p value is fairly low at 0.000285. This would suggest the am variable is fairly significant to MPG.
+
+```{r simple-regression}
+fit <- lm(mpg ~ am, data = mtcars)
+
+summary(fit)
+```
+
+We can also calculate the confidence interval for the model. This interval we can interpret as saying with 95% confidence we can say the gains will be between 3.64151 and 10.84837
+
+```{r confidence-interval}
+confint(fit, 'am', level=0.95)
+```
+
+The issue with this model is that it doesn't explain much of the variation as evidenced by the relatively low R squared value of 0.3598. So while all the other pieces appear to line up there appears to be fairly large residuals.
+
+## Significance of Weight on MPG
+
+Of the variables that might influence MPG, weight is the most logically direct. Heavier car, lower MPG. Using a simple plot one can visually pick up on the strong inverse relationship between MPG and weight.
+
+```{r mpg-weight-plot, message=FALSE}
+library(ggplot2)
+ggplot(
+  aes(x = wt, 
+      y = mpg, 
+      color = factor(am, labels = c("automatic","manual"))), 
+  data = mtcars
+  ) + 
+  geom_point() + 
+  scale_color_discrete(name = "Transmission") + 
+  xlab("Weight") + 
+  ylab("MPG")
+```
+
+## Factoring in weight
+
+In order to fully understand the transmission's effect on MPG, we must pick out weight and measure its effect while holding weight constant. By adding weight as a confounding variable in the regression model, we can tease apart transmission's true effect.
+
+```{r multi}
+fit2 <- lm(mpg ~ am + wt, data = mtcars)
+intercept <- fit2$coefficients[1]
+slope <- fit2$coefficients[2]
+summary(fit2)
+```
+
+As we can see from the summary the p value for the transmission variable went up dramatically by adding in weight. This can be interpretted as am losing relative significance. With the p value that high, we cannot reject the null hypothesis. Simply put this analysis suggests the transmission isn't relevant.
+
+As would be expected by adding more variables to the model. More variance can be explained as evidenced by the R squared value.
+
+```{r rsquared}
+summary(fit2)$r.squared
+```
+
+## Residuals and Diagnostics
+
+In order to understand the model, various residual focused tools can be used. The first is the standard set of residual plots.
+
+```{r regression-plot}
+par(mfrow=c(2,2))
+plot(fit2)
+```
+
+From this we can glean that the residuals of the model are relatively normally distributed (as evidenced by the Normal Q-Q plot). This suggests our model isn't significantly biased. We can see that there are a few points that stick out from the others. Examining these data points in detail yields a few interesting results.
+
+```{r outliers}
+mtcars[rownames(mtcars) %in% c("Ford Pantera L", "Merc 230", "Fiat 128"), ]
+
+diagnostics <- data.frame(dfbetaam = dfbeta(fit2)[,2], hat = hatvalues(fit2), am = mtcars$am, wt = mtcars$wt, mpg = mtcars$mpg)
+
+diagnostics[rownames(diagnostics) %in% c("Toyota Corolla", "Chrysler Imperial", "Fiat 128"), ]
+```
+
+From these diagnostics, we can see that the Chrysler Imperial appears to be a very influencial point. It has relatively low MPG and is an automatic, but also is one of the heaviest cars in the data set. In contrast, the Toyota Corolla has a relatively high MPG, and while it is a manual transmission, it is also one of the lightest cars in the dataset.
+
+## Results
+
+Based on the models and tools used in this analysis, MPG is not influenced strongly by the difference between automatic and manual, but is instead heavily influenced by weight. A model that does not consider weight when looking at MPG could easily draw the wrong conclusions.
